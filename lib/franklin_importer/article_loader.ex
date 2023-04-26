@@ -1,9 +1,11 @@
 defmodule FranklinImporter.ArticleLoader do
+  @content_path Path.join([File.cwd!(), "../mikezornek/content/posts"])
+
   def load_articles() do
     # add ignore .DS_Store and others.
 
-    content_dir = Path.join([File.cwd!(), "../mikezornek/content/posts"])
-    walk(content_dir)
+    @content_path
+    |> markdown_files_from_path()
 
     # get a list of all known media files from the content folder
     # create a data structure to store the meta data for each, things like expected url, filename, etc.
@@ -16,25 +18,22 @@ defmodule FranklinImporter.ArticleLoader do
     # for each post struct, use the graph api to create an article.
   end
 
-  def walk(folder_path) do
-    walk_files(folder_path, [])
+  defp markdown_files_from_path(path) do
+    walk_path_for_markdown_files(path, [])
   end
 
-  defp walk_files(folder_path, acc) do
-    case File.ls(folder_path) do
-      {:ok, paths} ->
-        dbg(paths)
+  defp walk_path_for_markdown_files(incoming_path, acc) do
+    # This function will recursively walk the incoming path,
+    # adding all `.md` files to the accumulator.
 
-        Enum.reduce(paths, acc, fn path, acc ->
-          path = Path.expand(path)
+    case File.ls(incoming_path) do
+      {:ok, filenames} ->
+        Enum.reduce(filenames, acc, fn filename, acc ->
+          path = Path.join([incoming_path, filename])
 
           if File.dir?(path) do
-            dbg("is a directory")
-            walk_files(path, acc)
+            walk_path_for_markdown_files(path, acc)
           else
-            dbg(path)
-            dbg("is not a directory")
-
             if Path.extname(path) == ".md" do
               [path | acc]
             else
@@ -44,7 +43,7 @@ defmodule FranklinImporter.ArticleLoader do
         end)
 
       {:error, reason} ->
-        dbg(reason)
+        IO.inspect(reason, label: "Error from trying to list files.")
         acc
     end
   end
